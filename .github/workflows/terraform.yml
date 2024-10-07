@@ -52,12 +52,25 @@ jobs:
       run: |
         terraform show -json tf.tfplan > tfplan.json
 
+    - name: Check Terraform Plan JSON
+      run: |
+        echo "First 1000 characters of tfplan.json:"
+        head -c 1000 tfplan.json
+        echo "..."
+        echo "Last 1000 characters of tfplan.json:"
+        tail -c 1000 tfplan.json
+
     - name: OPA Evaluate
       run: |
+        echo "Evaluating OPA policies..."
         opa eval --format pretty --data bucket_policy.rego --input tfplan.json "data.terraform.deny" > opa_results.txt
-        if [ -s opa_results.txt ]; then
-          echo "OPA policy violations found:"
-          cat opa_results.txt
+        opa eval --format pretty --data bucket_policy.rego --input tfplan.json "data.terraform.print_bucket_info" >> opa_results.txt
+        
+        echo "OPA evaluation results:"
+        cat opa_results.txt
+        
+        if grep -q "Bucket" opa_results.txt; then
+          echo "OPA policy violations found."
           exit 1
         else
           echo "No OPA policy violations found."
